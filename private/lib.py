@@ -4,6 +4,10 @@ from relmd_types import PipelineHandling
 import signal
 import os
 
+_threads = {}
+_pipelines = {}
+_exceptions = {}
+
 class _SignalHandler:
     class Process:
         def __init__(self, proc, signal_to_stop):
@@ -61,26 +65,25 @@ class _PipelineThread(Thread):
         self.on_exception_callbacks = [on_exception]
         self.processed_label = ""
         self.done_labels = []
-        Thread.__init__(self, target = self._worker, daemon = True)
-    def _worker(self, *args, **kwargs):
+        Thread.__init__(self, target = self._process_with_exception, daemon = True)
+    def _process(self, *args, **kwargs):
+        while True:
+            with self.lock:
+                if self._stop:
+                    break
+                output = self.q.get()
+                if output is None:
+                    break
+                (signal_handler, item) = output
+                self.signal_handler = signal_handler
+            self.processed_label = str(item)
+            item()
+            self.done_labels.append(self.processed_label)
+            self.processed_label = ""
+            self.q.task_done()
+    def _process_with_exception(self, *args, **kwargs):
         try:
-            while True:
-                self.lock.acquire()
-                try:
-                    if self._stop:
-                        break
-                    output = self.q.get()
-                    if output is None:
-                        break
-                    (signal_handler, item) = output
-                    self.signal_handler = signal_handler
-                finally:
-                    self.lock.release()
-                self.processed_label = str(item)
-                item()
-                self.done_labels.append(self.processed_label)
-                self.processed_label = ""
-                self.q.task_done()
+            self._worker(self, *args, **kwargs)
         except Exception as ex:
             self.on_exception(ex)
     def stop(self):
@@ -94,3 +97,37 @@ class _PipelineThread(Thread):
     def on_exception(self, ex):
         for c in self.on_exception_callbacks:
             c(self.ids, ex)
+
+def handle_pipelines_file(pipelines_file):
+    global _threads, _pipelines, _exceptions
+    with open(pipelines_file, "r") as rpipelines_file:
+        code = compile(rpipelines_file.read(), 'relmd_pipelines.py', 'exec')
+        ex_locals = {}
+        exec(code, None, ex_locals)
+        pipelines = ex_locals['pipelines']
+        for ids, callables in pipelines.items():
+            def on_thread_exception(ids, ex):
+                _exceptions[ids[1]] = ex
+            (iid, pid) = ids
+            if _pipelines.get(pid, None) == iid:
+                continue
+            _pipelines[pid] = iid
+            handling = PipelineHandling.APPEND_CONTINUE
+            if isinstance(callables, tuple):
+                handling = callables[0]
+                callables = callables[1]
+            if handling is PipelineHandling.APPEND_CONTINUE:
+                if pid in _threads:
+                    for c in callables:
+                        _threads[pid].q.put(c)
+                else:
+                    thread = _PipelineThread(ids, callables, on_exception = on_thread_exception)
+                    _threads[pid] = thread
+                    thread.start()
+            elif handling is PipelineHandling.CLEAR_RESTART:
+                if pid in _threads:
+                    thread = _threads[pid]
+                    thread.stop()
+                thread = _PipelineThread(ids, callables, on_exception = on_thread_exception)
+                _threads[pid] = thread
+                thread.start()
