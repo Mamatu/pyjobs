@@ -98,10 +98,10 @@ class _PipelineThread(Thread):
         for c in self.on_exception_callbacks:
             c(self.ids, ex)
 
-def handle_pipelines_file(pipelines_file):
+def handle_pipelines_file(pipelines_path):
     global _threads, _pipelines, _exceptions
-    with open(pipelines_file, "r") as rpipelines_file:
-        code = compile(rpipelines_file.read(), 'relmd_pipelines.py', 'exec')
+    with open(pipelines_path, "r") as rpipelines_file:
+        code = compile(pipelines_file.read(), 'relmd_pipelines.py', 'exec')
         ex_locals = {}
         exec(code, None, ex_locals)
         pipelines = ex_locals['pipelines']
