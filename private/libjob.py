@@ -1,8 +1,10 @@
 from threading import Thread, Lock
-from relmd_types import PipelineHandling
+from relmd_types import JobHandling
 
 import signal
 import os
+
+from pyjobs.private import libasyncqueue
 
 _threads = {}
 _pipelines = {}
@@ -31,17 +33,15 @@ class _SignalHandler:
 
 from enum import Enum
 
-class PipelineHandling(Enum):
+class JobHandling(Enum):
     CLEAR_RESTART = 1,
     APPEND_CONTINUE = 2
 
-import queue
-
-class PipelineElement:
+class JobElement:
     def __init__(self):
         pass
 
-class ProcessElement(PipelineElement):
+class ProcessElement(JobElement):
     def __init__(self):
         pass
 
@@ -54,54 +54,21 @@ def _kill(p):
     p.kill()
     p.wait()
 
-class _PipelineThread(Thread):
-    def __init__(self, ids, pipeline, on_exception):
-        self._stop = False
-        self.ids = ids
-        self.signal_handler = None
-        self.lock = Lock()
-        self.q = queue.Queue()
-        self.q.queue = queue.deque(pipeline)
-        self.on_exception_callbacks = [on_exception]
-        self.processed_label = ""
-        self.done_labels = []
-        Thread.__init__(self, target = self._process_with_exception, daemon = True)
-    def _process(self, *args, **kwargs):
-        while True:
-            with self.lock:
-                if self._stop:
-                    break
-                output = self.q.get()
-                if output is None:
-                    break
-                (signal_handler, item) = output
-                self.signal_handler = signal_handler
-            self.processed_label = str(item)
-            item()
-            self.done_labels.append(self.processed_label)
-            self.processed_label = ""
-            self.q.task_done()
-    def _process_with_exception(self, *args, **kwargs):
-        try:
-            self._worker(self, *args, **kwargs)
-        except Exception as ex:
-            self.on_exception(ex)
-    def stop(self):
-        self.lock.acquire()
-        try:
-            self._stop = True
-            if self.signal_handler:
-                self.signal_handler(stop = True)
-        finally:
-            self.lock.release()
-    def on_exception(self, ex):
-        for c in self.on_exception_callbacks:
-            c(self.ids, ex)
+class _Job:
+    def __init__(self, update_id, job_id, pipeline = []):
+        self.update_id = update_id
+        self.job_id = job_id
+        self.pipeline = pipeline
+        self.job_queue = libasyncqueue.make(self.pipeline)
+
+class _Jobs:
+    def __init__(self, jobs_file_path):
+        pass
 
 def handle_pipelines_file(pipelines_path):
     global _threads, _pipelines, _exceptions
     with open(pipelines_path, "r") as rpipelines_file:
-        code = compile(pipelines_file.read(), 'relmd_pipelines.py', 'exec')
+        code = compile(pipelines_file.read(), f"{pipeline_path}", 'exec')
         ex_locals = {}
         exec(code, None, ex_locals)
         pipelines = ex_locals['pipelines']
@@ -112,22 +79,22 @@ def handle_pipelines_file(pipelines_path):
             if _pipelines.get(pid, None) == iid:
                 continue
             _pipelines[pid] = iid
-            handling = PipelineHandling.APPEND_CONTINUE
+            handling = JobHandling.APPEND_CONTINUE
             if isinstance(callables, tuple):
                 handling = callables[0]
                 callables = callables[1]
-            if handling is PipelineHandling.APPEND_CONTINUE:
+            if handling is JobHandling.APPEND_CONTINUE:
                 if pid in _threads:
                     for c in callables:
                         _threads[pid].q.put(c)
                 else:
-                    thread = _PipelineThread(ids, callables, on_exception = on_thread_exception)
+                    thread = _JobThread(ids, callables, on_exception = on_thread_exception)
                     _threads[pid] = thread
                     thread.start()
-            elif handling is PipelineHandling.CLEAR_RESTART:
+            elif handling is JobHandling.CLEAR_RESTART:
                 if pid in _threads:
                     thread = _threads[pid]
                     thread.stop()
-                thread = _PipelineThread(ids, callables, on_exception = on_thread_exception)
+                thread = _JobThread(ids, callables, on_exception = on_thread_exception)
                 _threads[pid] = thread
                 thread.start()
