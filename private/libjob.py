@@ -6,10 +6,6 @@ import os
 
 from pyjobs.private import libasyncqueue
 
-_threads = {}
-_pipelines = {}
-_exceptions = {}
-
 class _SignalHandler:
     class Process:
         def __init__(self, proc, signal_to_stop):
@@ -54,6 +50,7 @@ def _kill(p):
     p.kill()
     p.wait()
 
+
 class _Job:
     def __init__(self, update_id, job_id, pipeline = []):
         self.update_id = update_id
@@ -65,13 +62,22 @@ class _Jobs:
     def __init__(self, jobs_file_path):
         pass
 
-def handle_pipelines_file(pipelines_path):
-    global _threads, _pipelines, _exceptions
-    with open(pipelines_path, "r") as rpipelines_file:
-        code = compile(pipelines_file.read(), f"{pipeline_path}", 'exec')
-        ex_locals = {}
-        exec(code, None, ex_locals)
-        pipelines = ex_locals['pipelines']
+class FilePipelinesParser:
+    def __init__(self, path):
+        self.path = path
+        self._threads = {}
+        self._pipelines = {}
+        self._exceptions = {}
+    def _get_pipelines(self):
+        with open(self.path, "r") as file:
+            code = compile(file.read(), f"{self.path}", 'exec')
+            ex_locals = {}
+            exec(code, None, ex_locals)
+            if not 'pipelines' in ex_locals:
+                raise Exception(f"No pipelines in {path}")
+            return ex_locals['pipelines']
+    def parse(self):
+        pipelines = self._get_pipelines()
         for ids, callables in pipelines.items():
             def on_thread_exception(ids, ex):
                 _exceptions[ids[1]] = ex
