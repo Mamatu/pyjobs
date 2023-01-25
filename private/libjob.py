@@ -65,8 +65,8 @@ class _Jobs:
 class FilePipelinesParser:
     def __init__(self, path):
         self.path = path
-        self._threads = {}
-        self._pipelines = {}
+        self._jobs = {}
+        self._current_update_id = {}
         self._exceptions = {}
     def _get_pipelines(self):
         with open(self.path, "r") as file:
@@ -76,31 +76,36 @@ class FilePipelinesParser:
             if not 'pipelines' in ex_locals:
                 raise Exception(f"No pipelines in {path}")
             return ex_locals['pipelines']
+    def on_thread_exception(self, job_id, ex):
+        self._exceptions[job_id] = ex
+    def _run_job_thread(job_id, update_id, callables):
+        if job_id in self._jobs:
+            raise Exception(f"Is already job thread with job_id {job_id}")
+        thread = _JobThread((job_id, update_id), callables, on_exception = on_thread_exception)
+        self._jobs[pid] = thread
+        thread.start()
+    def _handle_append_continue(job_id, update_id, callables):
+        if job_id in _threads:
+            for c in callables:
+                _threads[pid].q.put(c)
+            else:
+                self._run_job_thread(job_id, update_id, callbables)
+    def _handle_clear_restart(job_id, update_id, callables):
+        if job_id in _jobs:
+            job = _jobs[job_id]
+            job.stop()
+        self._run_job_thread(job_id, update_id, callables)
     def parse(self):
         pipelines = self._get_pipelines()
         for ids, callables in pipelines.items():
-            def on_thread_exception(ids, ex):
-                _exceptions[ids[1]] = ex
-            (iid, pid) = ids
-            if _pipelines.get(pid, None) == iid:
+            (job_id, update_id) = ids
+            if _pipelines.get(job_id, None) == update_id:
                 continue
-            _pipelines[pid] = iid
+            self.current_update_id[job_id] = update_id
             handling = JobHandling.APPEND_CONTINUE
             if isinstance(callables, tuple):
                 handling = callables[0]
                 callables = callables[1]
             if handling is JobHandling.APPEND_CONTINUE:
-                if pid in _threads:
-                    for c in callables:
-                        _threads[pid].q.put(c)
-                else:
-                    thread = _JobThread(ids, callables, on_exception = on_thread_exception)
-                    _threads[pid] = thread
-                    thread.start()
             elif handling is JobHandling.CLEAR_RESTART:
-                if pid in _threads:
-                    thread = _threads[pid]
-                    thread.stop()
-                thread = _JobThread(ids, callables, on_exception = on_thread_exception)
-                _threads[pid] = thread
-                thread.start()
+                self._handle_clear_restart(job_id, update_id)
