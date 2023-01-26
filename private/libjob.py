@@ -96,6 +96,9 @@ class FilePipelinesParser:
             job.stop()
         self._run_job_thread(job_id, update_id, callables)
     def parse(self):
+        handlers = {}
+        handlers[JobHandling.APPEND_CONTINUE] = self._handle_append_continue
+        handlers[JobHandling.CLEAR_RESTART] = self._handle_clear_restart
         pipelines = self._get_pipelines()
         for ids, callables in pipelines.items():
             (job_id, update_id) = ids
@@ -106,6 +109,6 @@ class FilePipelinesParser:
             if isinstance(callables, tuple):
                 handling = callables[0]
                 callables = callables[1]
-            if handling is JobHandling.APPEND_CONTINUE:
-            elif handling is JobHandling.CLEAR_RESTART:
-                self._handle_clear_restart(job_id, update_id)
+            if not handling in handlers:
+                raise Exception(f"Not supported handling {handling}")
+            handlers[handling](job_id, update_id, callbables)
