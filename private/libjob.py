@@ -62,26 +62,26 @@ class _Jobs:
     def __init__(self, jobs_file_path):
         pass
 
-class FilePipelinesParser:
+def file_pipeline_parser(path)
+    with open(self.path, "r") as file:
+        code = compile(file.read(), f"{self.path}", 'exec')
+        ex_locals = {}
+        exec(code, None, ex_locals)
+        if not 'pipelines' in ex_locals:
+            raise Exception(f"No pipelines in {path}")
+        return ex_locals['pipelines']
+
+class _JobsProcess:
     def __init__(self, path):
-        self.path = path
         self._jobs = {}
         self._current_update_id = {}
         self._exceptions = {}
-    def _get_pipelines(self):
-        with open(self.path, "r") as file:
-            code = compile(file.read(), f"{self.path}", 'exec')
-            ex_locals = {}
-            exec(code, None, ex_locals)
-            if not 'pipelines' in ex_locals:
-                raise Exception(f"No pipelines in {path}")
-            return ex_locals['pipelines']
     def on_thread_exception(self, job_id, ex):
         self._exceptions[job_id] = ex
     def _run_job_thread(job_id, update_id, callables):
         if job_id in self._jobs:
             raise Exception(f"Is already job thread with job_id {job_id}")
-        thread = _JobThread((job_id, update_id), callables, on_exception = on_thread_exception)
+        thread = _JobThread((job_id, update_id), callables, on_exception = self.on_thread_exception)
         self._jobs[pid] = thread
         thread.start()
     def _handle_append_continue(job_id, update_id, callables):
@@ -95,7 +95,7 @@ class FilePipelinesParser:
             job = _jobs[job_id]
             job.stop()
         self._run_job_thread(job_id, update_id, callables)
-    def parse(self):
+    def process_pipeline(self):
         handlers = {}
         handlers[JobHandling.APPEND_CONTINUE] = self._handle_append_continue
         handlers[JobHandling.CLEAR_RESTART] = self._handle_clear_restart
