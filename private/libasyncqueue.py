@@ -2,7 +2,7 @@ import logging
 from queue import Queue
 
 from pyjobs.private.pylibcommons.libparameters import verify_parameters
-from pyjobs.private.pylibcommons.libinfo import print_func_info
+from pyjobs.private.pylibcommons.libprint import print_func_info
 from threading import Thread, Lock
 
 class AsyncQueue(Thread):
@@ -23,7 +23,7 @@ class AsyncQueue(Thread):
             with self.lock:
                 if self._stop:
                     return
-                q_item = self.queue.get()
+                q_item = self.queue.get(False)
                 if q_item is None:
                     return
                 q_out = q_item
@@ -31,15 +31,19 @@ class AsyncQueue(Thread):
                 q_func = None
                 if isinstance(q_out, tuple):
                     q_func, q_stop_handler = q_out
+                    print_func_info(extra_string = f"Queue get {q_func} {q_stop_handler}")
                 elif callable(q_out):
                     q_func = q_out
+                    print_func_info(extra_string = f"Queue get {q_func}")
                 else:
                     raise Exception("Not supported queue item")
                 self.stop_handler = q_stop_handler
                 func = q_func
             if func is None:
                 raise Exception("func is None")
+            print_func_info(extra_string = f"+ Call {func}")
             func()
+            print_func_info(extra_string = f"- Call {func}")
             self.queue.task_done()
     def _process_with_exception(self):
         try:

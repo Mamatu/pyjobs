@@ -10,7 +10,7 @@ class JobStatus(Enum):
     FINISHED = 2
 
 from pyjobs.private.pylibcommons.libparameters import verify_parameters
-from pyjobs.private.pylibcommons.libinfo import print_func_info
+from pyjobs.private.pylibcommons.libprint import class_debug_prints
 
 class JobsProcess:
     def __init__(self):
@@ -95,16 +95,13 @@ class _JobThread(AsyncQueue):
         self._cond = Condition()
         super().__init__(queue, on_exception = self.on_exception, on_finish = self.on_finish)
     def on_exception(self, ex):
-        print_func_info()
         self._on_exception(self._job_id, ex)
     def on_finish(self):
-        print_func_info()
         self._on_finish(self._job_id)
         with self._cond:
             self._is_finished = True
             self._cond.notify_all()
     def wait_for_finish(self):
-        print_func_info()
         with self._cond:
             if not self._is_finished:
                 self._cond.wait()
