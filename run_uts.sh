@@ -1,2 +1,2 @@
 #!/bin/bash
-python3 -m pytest $(find -name "ut_*.py")
+PYTHONPATH=..:.:private python3 -m pytest -s -vv $(find -name "ut_*.py" -not -path "*/pylibcommons/*")

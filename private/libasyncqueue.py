@@ -1,61 +1,67 @@
+import logging
+from queue import Queue
+
+from pyjobs.private.pylibcommons.libparameters import verify_parameters
+from pyjobs.private.pylibcommons.libprint import print_func_info
 from threading import Thread, Lock
-import queue
 
 class AsyncQueue(Thread):
-    def __init__(self, queue, on_exception):
+    def __init__(self, queue_items, on_exception, on_finish):
+        verify_parameters(on_exception, ["ex"])
+        verify_parameters(on_finish, [])
         self._stop = False
-        self.ids = ids
         self.stop_handler = None
         self.lock = Lock()
-        self.q = queue.Queue()
-        self.q.queue = queue.deque(queue)
+        self.queue = Queue()
+        for qi in queue_items: self.queue.put(qi)
+        self.on_finish_callbacks = [on_finish]
         self.on_exception_callbacks = [on_exception]
-        Thread.__init__(self, target = self._process_with_exception, daemon = True)
-
-    def _process(self, *args, **kwargs):
+        super().__init__(target = self._process_with_exception)
+    def _process(self):
         while True:
             func = None
             with self.lock:
                 if self._stop:
-                    break
-                q_item = self.q.get()
+                    return
+                q_item = self.queue.get(False)
                 if q_item is None:
-                    break
+                    return
                 q_out = q_item
                 q_stop_handler = None
                 q_func = None
                 if isinstance(q_out, tuple):
-                    q_func = q_out[0]
-                    q_stop_handler = q_out[1]
-                elif isinstance(q_out, callable):
+                    q_func, q_stop_handler = q_out
+                    print_func_info(extra_string = f"Queue get {q_func} {q_stop_handler}")
+                elif callable(q_out):
                     q_func = q_out
+                    print_func_info(extra_string = f"Queue get {q_func}")
                 else:
                     raise Exception("Not supported queue item")
                 self.stop_handler = q_stop_handler
                 func = q_func
             if func is None:
                 raise Exception("func is None")
+            print_func_info(extra_string = f"+ Call {func}")
             func()
-            self.q.task_done()
-
-    def _process_with_exception(self, *args, **kwargs):
+            print_func_info(extra_string = f"- Call {func}")
+            self.queue.task_done()
+    def _process_with_exception(self):
         try:
-            self._process(self, *args, **kwargs)
+            self._process()
         except Exception as ex:
+            logging.fatal(f"Exception {ex} in thread {self}")
             self.on_exception(ex)
-
+        finally:
+            self.on_finish()
     def stop(self):
-        self.lock.acquire()
-        try:
+        with self.lock:
             self._stop = True
             if self.stop_handler:
                 self.stop_handler(stop = True)
-        finally:
-            self.lock.release()
-
+    def on_finish(self):
+        for c in self.on_finish_callbacks: c()
     def on_exception(self, ex):
-        for c in self.on_exception_callbacks:
-            c(ex)
+        for c in self.on_exception_callbacks: c(ex = ex)
 
 def make(queue, on_exception):
     return AsyncQueue(queue, on_exception)
