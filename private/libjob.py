@@ -4,6 +4,12 @@ from enum import Enum
 class JobHandling(Enum):
     CLEAR_RESTART = 1,
     APPEND_CONTINUE = 2
+    @staticmethod
+    def make(job_handling):
+        if isinstance(job_handling, str):
+            return JobHandling[job_handling.upper()]
+        if isinstance(job_handling, JobHandling):
+            return job_handling
 
 class JobStatus(Enum):
     STARTED = 1,
@@ -20,10 +26,10 @@ class JobsProcess:
         self._exceptions = {}
         self._callbacks = []
         self.update_id_exception = False
-    def register_callback(callback):
+    def register_callback(self, callback):
         verify_parameters(callback, ["job_id", "job_status"])
         self._callbacks.append(callback)
-    def unregister_callback(callback):
+    def unregister_callback(self, callback):
         if callback not in self._callbacks:
             raise Exception(f"Callback {callback} was not registered")
         self._callbacks.remove(callback)
@@ -62,12 +68,12 @@ class JobsProcess:
         exception_msg = f"pipeline_getter must return tuple of type (job_id, update_id, jobs) or (job_id, update_id, jobs, handling_type)"
         if not isinstance(pipeline, tuple):
             raise Exception(exception_msg)
-        if not len(pipeline) == 3 or len(pipeline) == 4:
+        if not len(pipeline) == 3 and not len(pipeline) == 4:
             raise Exception(exception_msg)
         handling = JobHandling.APPEND_CONTINUE
         if len(pipeline) == 4:
-            handling = pipeline[3]
-        job_id, update_id, pipeline_items = pipeline
+            handling = JobHandling.make(pipeline[3])
+        job_id, update_id, pipeline_items = pipeline[0:3]
         if self._update_id.get(job_id, None) == update_id:
             msg = f"pipeline {pipeline} has already processed update_id {update_id}. Nothing to do"
             if self.update_id_exception:
@@ -80,6 +86,9 @@ class JobsProcess:
         handlers[handling](job_id, update_id, pipeline_items)
     def wait_for_finish(self, job_id):
         self._jobs[job_id].wait_for_finish()
+    def wait_for_all_finish(self):
+        for job_id in self._jobs.keys():
+            self.wait_for_finish(job_id)
 
 from pyjobs.private.libasyncqueue import AsyncQueue
 from threading import Thread
