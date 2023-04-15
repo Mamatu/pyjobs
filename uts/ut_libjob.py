@@ -23,7 +23,6 @@ def test_libjob_1():
     pipeline = [MagicMock(), MagicMock(), MagicMock()]
     pipeline1 = [MagicMock(), MagicMock(), MagicMock()]
     jp = libjob.JobsProcess()
-    job_id = 0
     update_id = 0
     jp.process_pipeline((0, update_id, pipeline))
     jp.process_pipeline((1, update_id, pipeline1))

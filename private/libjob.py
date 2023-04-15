@@ -129,14 +129,6 @@ class _SignalHandler:
     def stopped(self):
         return self._stopped
 
-class JobElement:
-    def __init__(self):
-        pass
-
-class ProcessElement(JobElement):
-    def __init__(self):
-        pass
-
 def _kill(p):
     parent = psutil.Process(p.pid)
     children = parent.children(recursive=True)
@@ -145,17 +137,6 @@ def _kill(p):
     logging.info(f"kill {p}")
     p.kill()
     p.wait()
-
-class _Job:
-    def __init__(self, update_id, job_id, pipeline = []):
-        self.update_id = update_id
-        self.job_id = job_id
-        self.pipeline = pipeline
-        self.job_queue = libasyncqueue.make(self.pipeline)
-
-class _Jobs:
-    def __init__(self, jobs_file_path):
-        pass
 
 def parse_pipeline_file(path):
     with open(self.path, "r") as file:
