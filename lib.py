@@ -1,7 +1,2 @@
-class PipelineElement:
-    def __init__(self):
-        pass
-
-class ProcessElement(PipelineElement):
-    def __init__(self):
-        pass
+from private.libjob import JobsProcess
+from private.libjob import parse_pipeline_file
