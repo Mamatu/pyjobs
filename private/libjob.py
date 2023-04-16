@@ -55,6 +55,15 @@ class JobsProcess:
         self._run_job_thread(job_id, update_id, pipeline_items)
     def enable_update_id_exception(self, update_id_exception = True):
         self.update_id_exception = update_id_exception
+    def process_pipelines(self, pipelines):
+        if isinstance(pipelines, dict):
+            for k,v in pipelines.items():
+                if isinstance(k, tuple) and len(k) == 2:
+                    self.process_pipeline((k[0], k[1], v))
+                else:
+                    raise Exception("Not supported key type")
+        else:
+            raise Exception("Not supported pipelines type")
     def process_pipeline(self, pipeline):
         handlers = {}
         handlers[JobHandling.APPEND_CONTINUE] = self._handle_append_continue
