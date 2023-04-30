@@ -96,3 +96,14 @@ def test_lib_pipelines_1():
     for i in pipelines[(0, 0)]: i.assert_called_once()
     jp.wait_for_finish(1)
     for i in pipelines[(1, 0)]: i.assert_called_once()
+
+def test_lib_pipelines_stop_handler():
+    from pyjobs import lib
+    update_id = 0
+    pipelines = {(0, update_id) : [MagicMock(), MagicMock(), MagicMock()], (1, update_id) : [MagicMock(), MagicMock(), MagicMock()]}
+    jp = lib.JobsProcess()
+    jp.process_pipelines(pipelines)
+    jp.wait_for_finish(0)
+    for i in pipelines[(0, 0)]: i.assert_called_once()
+    jp.wait_for_finish(1)
+    for i in pipelines[(1, 0)]: i.assert_called_once()
