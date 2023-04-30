@@ -148,8 +148,8 @@ def _kill(p):
     p.wait()
 
 def parse_pipeline_file(path):
-    with open(self.path, "r") as file:
-        code = compile(file.read(), f"{self.path}", 'exec')
+    with open(path, "r") as file:
+        code = compile(file.read(), f"{path}", 'exec')
         ex_locals = {}
         exec(code, None, ex_locals)
         if not 'pipelines' in ex_locals:
