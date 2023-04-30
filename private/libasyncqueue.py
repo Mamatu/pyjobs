@@ -36,7 +36,7 @@ class AsyncQueue(Thread):
                     q_func = q_out
                     print_func_info(extra_string = f"Queue get {q_func}")
                 else:
-                    raise Exception("Not supported queue item")
+                    raise Exception(f"Not supported queue item: {type(q_out)}")
                 self.stop_handler = q_stop_handler
                 func = q_func
             if func is None:
