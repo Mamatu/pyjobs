@@ -116,12 +116,14 @@ class _JobThread(AsyncQueue):
                 self._cond.wait()
 
 import signal
+from dataclasses import dataclass
+from typing import Any
 
 class _SignalHandler:
+    @dataclass
     class Process:
-        def __init__(self, proc, signal_to_stop):
-            self.proc = proc
-            self.signal_to_stop = signal_to_stop
+        proc: Any
+        signal_to_stop: Any
         def stop(self):
             self.proc.send_signal(self.signal_to_stop)
     def __init__(self):
