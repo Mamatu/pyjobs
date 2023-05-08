@@ -1,3 +1,3 @@
 #!/bin/bash
-ARG=$1
+ARG="$@"
 PYTHONPATH=..:.:private python3 -m pytest -s -vv $ARG
