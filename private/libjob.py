@@ -50,7 +50,7 @@ class JobsProcess:
             self._run_job_thread(job_id, update_id, pipeline_items)
     def _handle_clear_restart(self, job_id, update_id, pipeline_items):
         if job_id in self._jobs:
-            job = _jobs[job_id]
+            job = self._jobs[job_id]
             job.stop()
         self._run_job_thread(job_id, update_id, pipeline_items)
     def enable_update_id_exception(self, update_id_exception = True):
@@ -89,6 +89,9 @@ class JobsProcess:
         handlers[handling](job_id, update_id, pipeline_items)
     def wait_for_finish(self, job_id):
         self._jobs[job_id].wait_for_finish()
+    def stop(self):
+        for v in self._jobs.values():
+            v.stop()
 
 from pyjobs.private.libasyncqueue import AsyncQueue
 from threading import Thread

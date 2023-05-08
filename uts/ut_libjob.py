@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+import time
 
 def test_libjob_one_job():
     from pyjobs.private import libjob
@@ -100,25 +101,22 @@ def test_lib_pipelines_1():
 def test_lib_pipelines_stop_handler():
     from pyjobs import lib
     update_id = 0
-    mock_process = MagicMock()
-    mock_internal = MagicMock()
-    stopped = False
-    def side_effect():
-        time.sleep(0.5)
-        if not stopped:
-            mock_internal()
-    def stop_handler_side_effect(x):
-        stopped = x
-    mock_process.side_effect = side_effect
     mock_stop_handler = MagicMock()
-    mock_stop_handler.side_effect = stop_handler_side_effect
-    another_pipeline = [MagicMock(), MagicMock(), MagicMock()]
-    pipelines = {(0, update_id) : [(mock_process, mock_stop_handler)], (1, update_id) : another_pipeline}
+    mock_process = MagicMock()
+    stopped = False
     jp = lib.JobsProcess()
+    def mock_process_side_effect():
+        while not stopped:
+            time.sleep(0.01)
+            jp.stop()
+    def stop_handler_side_effect(x):
+        stopped = True
+    mock_process.side_effect = mock_process_side_effect
+    mock_stop_handler.side_effect = stop_handler_side_effect
+    pipelines = {(0, update_id) : [(mock_process, mock_stop_handler)], (1, update_id) : [MagicMock(), MagicMock(), MagicMock()]}
     jp.process_pipelines(pipelines)
-    mock_stop_handler(True)
     jp.wait_for_finish(0)
     jp.wait_for_finish(1)
+    mock_process.assert_called_once()
     mock_stop_handler.assert_called_once()
-    mock_internal.assert_not_called()
     for i in pipelines[(1, 0)]: i.assert_called_once()
