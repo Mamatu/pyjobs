@@ -5,6 +5,8 @@ from pyjobs.private.pylibcommons.libparameters import verify_parameters
 from pyjobs.private.pylibcommons.libprint import print_func_info
 from threading import Thread, Lock
 
+import traceback
+
 class AsyncQueue(Thread):
     def __init__(self, queue_items, on_exception, on_finish):
         verify_parameters(on_exception, ["ex"])
@@ -50,6 +52,7 @@ class AsyncQueue(Thread):
             self._process()
         except Exception as ex:
             logging.fatal(f"Exception {ex} in thread {self}")
+            traceback.print_tb(ex.__traceback__)
             self.on_exception(ex)
         finally:
             self.on_finish()
