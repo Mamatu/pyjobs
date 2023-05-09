@@ -133,7 +133,7 @@ class _SignalHandler:
         self.items = []
         self._stopped = False
     def register_proc(self, proc, signal_to_stop = signal.SIGINT):
-        self.items.append(SignalHandler.Process(proc, signal_to_stop))
+        self.items.append(_SignalHandler.Process(proc, signal_to_stop))
     def __call__(self, **kwargs):
         if "stop" in kwargs and kwargs['stop'] == True:
             self._stopped = True
