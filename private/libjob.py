@@ -50,7 +50,7 @@ class JobsProcess:
             self._run_job_thread(job_id, update_id, pipeline_items)
     def _handle_clear_restart(self, job_id, update_id, pipeline_items):
         if job_id in self._jobs:
-            job = _jobs[job_id]
+            job = self._jobs[job_id]
             job.stop()
         self._run_job_thread(job_id, update_id, pipeline_items)
     def enable_update_id_exception(self, update_id_exception = True):
@@ -89,6 +89,9 @@ class JobsProcess:
         handlers[handling](job_id, update_id, pipeline_items)
     def wait_for_finish(self, job_id):
         self._jobs[job_id].wait_for_finish()
+    def stop(self):
+        for v in self._jobs.values():
+            v.stop()
 
 from pyjobs.private.libasyncqueue import AsyncQueue
 from threading import Thread
@@ -116,19 +119,21 @@ class _JobThread(AsyncQueue):
                 self._cond.wait()
 
 import signal
+from dataclasses import dataclass
+from typing import Any
 
 class _SignalHandler:
+    @dataclass
     class Process:
-        def __init__(self, proc, signal_to_stop):
-            self.proc = proc
-            self.signal_to_stop = signal_to_stop
+        proc: Any
+        signal_to_stop: Any
         def stop(self):
             self.proc.send_signal(self.signal_to_stop)
     def __init__(self):
         self.items = []
         self._stopped = False
     def register_proc(self, proc, signal_to_stop = signal.SIGINT):
-        self.items.append(SignalHandler.Process(proc, signal_to_stop))
+        self.items.append(_SignalHandler.Process(proc, signal_to_stop))
     def __call__(self, **kwargs):
         if "stop" in kwargs and kwargs['stop'] == True:
             self._stopped = True
