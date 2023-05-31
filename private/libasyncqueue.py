@@ -3,7 +3,15 @@ from queue import Queue
 
 from pyjobs.private.pylibcommons.libparameters import verify_parameters
 from pyjobs.private.pylibcommons.libprint import print_func_info
-from threading import Thread, Lock
+from threading import Thread, RLock
+
+import traceback
+from enum import Enum
+
+class OutputHandling(Enum):
+    NONE = 1,
+    AFTER_FUNC = 2,
+    AFTER_QUEUE = 3
 
 import traceback
 
@@ -13,9 +21,9 @@ class AsyncQueue(Thread):
         verify_parameters(on_finish, [])
         self._stop = False
         self.stop_handler = None
-        self.lock = Lock()
-        self.queue = Queue()
-        for qi in queue_items: self.queue.put(qi)
+        self.lock = RLock()
+        self.queue = []
+        for qi in queue_items: self.queue.append(qi)
         self.on_finish_callbacks = [on_finish]
         self.on_exception_callbacks = [on_exception]
         super().__init__(target = self._process_with_exception)
@@ -44,9 +52,41 @@ class AsyncQueue(Thread):
             if func is None:
                 raise Exception("func is None")
             print_func_info(extra_string = f"+ Call {func}")
+            #self.handle_output(func())
             func()
             print_func_info(extra_string = f"- Call {func}")
             self.queue.task_done()
+    def put(self, item, index = -1):
+        with self.lock:
+            if index < 0:
+                self.queue.append(item)
+            else:
+                self.queue.insert(index, item)
+    def handle_output(self, output):
+        if output is None:
+            return
+        if isinstance(output, tuple):
+            if isinstance(output[0], OutputHandling) and len(output) == 2:
+                if output[0] == OutputHandling.NONE:
+                    return
+                outputs = output[1]
+                if not isinstance(outputs, list):
+                    outputs = [outputs]
+                for o in outputs:
+                    if not callable(o):
+                        logging.error("Outputs contain not callable item: {o}")
+                        return
+                with self.lock:
+                    if output[0] == OutputHandling.AFTER_FUNC:
+                        index = 0
+                        for o in outputs:
+                            self.put(o, index = index)
+                            index = index + 1
+                    elif output[0] == OutputHandling.AFTER_QUEUE:
+                        for o in outputs: self.put(o)
+        else:
+            logging.warn(f"Cannot process output: {output}")
+    
     def _process_with_exception(self):
         try:
             self._process()
