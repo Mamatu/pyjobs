@@ -109,7 +109,9 @@ def test_lib_pipelines_stop_handler():
         while not stopped:
             time.sleep(0.01)
             jp.stop()
-    def stop_handler_side_effect(x):
+    def stop_handler_side_effect(stop = True):
+        global stopped
+        print("stop_handler_side_effect")
         stopped = True
     mock_process.side_effect = mock_process_side_effect
     mock_stop_handler.side_effect = stop_handler_side_effect

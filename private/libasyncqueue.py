@@ -33,7 +33,9 @@ class AsyncQueue(Thread):
             with self.lock:
                 if self._stop:
                     return
-                q_item = self.queue.get(False)
+                q_item = None
+                if len(self.queue) > 0:
+                    q_item = self.queue.pop(0)
                 if q_item is None:
                     return
                 q_out = q_item
@@ -52,10 +54,8 @@ class AsyncQueue(Thread):
             if func is None:
                 raise Exception("func is None")
             print_func_info(extra_string = f"+ Call {func}")
-            #self.handle_output(func())
-            func()
+            self.handle_output(func())
             print_func_info(extra_string = f"- Call {func}")
-            self.queue.task_done()
     def put(self, item, index = -1):
         with self.lock:
             if index < 0:
@@ -92,6 +92,7 @@ class AsyncQueue(Thread):
             self._process()
         except Exception as ex:
             logging.fatal(f"Exception {ex} in thread {self}")
+            print(f"Exception {ex} in thread {self}")
             traceback.print_tb(ex.__traceback__)
             self.on_exception(ex)
         finally:
