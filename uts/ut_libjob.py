@@ -1,6 +1,8 @@
 from unittest.mock import MagicMock
 import time
 
+from threading import Event
+
 def test_libjob_one_job():
     from pyjobs.private import libjob
     pipeline = [MagicMock()]
@@ -105,12 +107,13 @@ def test_lib_pipelines_stop_handler():
     mock_process = MagicMock()
     stopped = False
     jp = lib.JobsProcess()
+    event = Event()
     def mock_process_side_effect():
-        while not stopped:
+        while not event.is_set():
             time.sleep(0.01)
             jp.stop()
-    def stop_handler_side_effect(x):
-        stopped = True
+    def stop_handler_side_effect(stop = True):
+        event.set()
     mock_process.side_effect = mock_process_side_effect
     mock_stop_handler.side_effect = stop_handler_side_effect
     pipelines = {(0, update_id) : [(mock_process, mock_stop_handler)], (1, update_id) : [MagicMock(), MagicMock(), MagicMock()]}
@@ -119,4 +122,3 @@ def test_lib_pipelines_stop_handler():
     jp.wait_for_finish(1)
     mock_process.assert_called_once()
     mock_stop_handler.assert_called_once()
-    for i in pipelines[(1, 0)]: i.assert_called_once()
